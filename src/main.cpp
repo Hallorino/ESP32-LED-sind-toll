@@ -1,8 +1,9 @@
 #include <Arduino.h>
-#include <fastLED.h>
+#include <FastLED.h>
 #include <WiFi.h>
 #include <ESPAsyncWebServer.h>
 #include <AsyncTCP.h>
+#include <secret.h>
 
 #define LED_PIN 2
 #define NUM_LEDS 8
@@ -13,8 +14,6 @@
 
 CRGB leds[NUM_LEDS];
 
-const char *ssid = "KEKSE";
-const char *password = "huch";
 AsyncWebServer server(80);
 
 int modus;
@@ -39,7 +38,7 @@ void setup()
   delay(1000);
 
   WiFi.mode(WIFI_STA); //Optional
-  WiFi.begin(ssid, password);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   Serial.println("\nConnecting");
 
   while (WiFi.status() != WL_CONNECTED)
@@ -199,7 +198,7 @@ void get_network_info()
   if (WiFi.status() == WL_CONNECTED)
   {
     Serial.print("[*] Network information for ");
-    Serial.println(ssid);
+    Serial.println(WIFI_SSID);
 
     Serial.println("[+] BSSID : " + WiFi.BSSIDstr());
     Serial.print("[+] Gateway IP : ");
