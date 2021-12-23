@@ -164,8 +164,6 @@ void loop() {
 }
 
 void FillLEDsFromPaletteColors(uint8_t colorIndex, CRGBPalette16 palette) {
-  uint8_t brightness = 255;
-
   for (int i = 0; i < NUM_LEDS; ++i) {
     leds[i] = ColorFromPalette(palette, colorIndex, brightness,
                                hasBlend ? LINEARBLEND : NOBLEND);
