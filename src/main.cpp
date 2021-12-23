@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
+#include <AsyncJson.h>
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include <FastLED.h>
@@ -31,7 +32,7 @@ Mode modes[] = {{"Rainbow", CRGBPalette16(RainbowColors_p)},
 
 uint8_t modesCount = sizeof(modes) / sizeof(modes[0]);
 
-int curentMode = 0;
+int currentMode = 0;
 boolean hasBlend = true;
 uint8_t brightness = 64;
 uint8_t fps = 100;
@@ -40,7 +41,7 @@ void FillLEDsFromPaletteColors(uint8_t colorIndex, CRGBPalette16 palette);
 
 String getSettingsAsJson() {
   StaticJsonDocument<96> doc;
-  doc["mode"] = modes[curentMode].name;
+  doc["mode"] = modes[currentMode].name;
   doc["hasBlend"] = hasBlend;
   doc["brightness"] = brightness;
   doc["fps"] = fps;
@@ -58,6 +59,10 @@ String getAllModesAsJson() {
   String jsonString;
   serializeJson(doc, jsonString);
   return jsonString;
+}
+
+void notFound(AsyncWebServerRequest *request) {
+  request->send(404, "application/json", "{\"message\":\"Not found\"}");
 }
 
 void setup() {
@@ -89,6 +94,55 @@ void setup() {
     Serial.println("get request on /settings");
     request->send(200, "application/json", getSettingsAsJson());
   });
+
+  // PATCH /settings
+  AsyncCallbackJsonWebHandler *ledStripPatchHandler =
+      new AsyncCallbackJsonWebHandler(
+          "/settings", [](AsyncWebServerRequest *request, JsonVariant &json) {
+            if (request->method() == HTTP_PATCH) {
+              StaticJsonDocument<64> data;
+              if (json.is<JsonObject>()) {
+                data = json.as<JsonObject>();
+                boolean foundMode = true;
+                if (data["mode"]) {
+                  foundMode = false;
+                  String mode = data["mode"];
+                  for (int i = 0; i < modesCount; i++) {
+                    if (mode.compareTo(modes[i].name) == 0) {
+                      currentMode = i;
+                      foundMode = true;
+                      break;
+                    }
+                  }
+                }
+                if (data["hasBlend"]) {
+                  // TODO Input validation
+                  hasBlend = data["hasBlend"];
+                }
+                if (data["brightness"]) {
+                  // TODO Input validation
+                  brightness = data["brightness"];
+                }
+                if (data["fps"]) {
+                  // TODO Input validation
+                  fps = data["fps"];
+                }
+
+                if (foundMode)
+                  request->send(200, "application/json", getSettingsAsJson());
+                else
+                  request->send(400, "application/json",
+                                "{\"message\":\"Bad Request mode not found\"}");
+              } else {
+                request->send(400, "application/json",
+                              "{\"message\":\"Bad Request no Json found\"}");
+              }
+            } else {
+              notFound(request);
+            }
+          });
+  server.addHandler(ledStripPatchHandler);
+
   server.begin();
 
   Serial.println("setup completed");
@@ -100,7 +154,7 @@ void loop() {
   static uint8_t startIndex = 0;
   startIndex = startIndex + 1; /* motion speed */
 
-  FillLEDsFromPaletteColors(startIndex, modes[curentMode].palette);
+  FillLEDsFromPaletteColors(startIndex, modes[currentMode].palette);
 
   // Schicke Farben zu LED Strip
   FastLED.show();
@@ -113,7 +167,8 @@ void FillLEDsFromPaletteColors(uint8_t colorIndex, CRGBPalette16 palette) {
   uint8_t brightness = 255;
 
   for (int i = 0; i < NUM_LEDS; ++i) {
-    leds[i] = ColorFromPalette(palette, colorIndex, brightness, hasBlend?LINEARBLEND:NOBLEND);
+    leds[i] = ColorFromPalette(palette, colorIndex, brightness,
+                               hasBlend ? LINEARBLEND : NOBLEND);
     colorIndex += 3;
   }
 }
