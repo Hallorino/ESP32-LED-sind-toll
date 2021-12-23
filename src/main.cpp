@@ -4,6 +4,7 @@
 #include <ESPAsyncWebServer.h>
 #include <AsyncTCP.h>
 #include <secret.h>
+#include <ArduinoJson.h>
 
 #define LED_PIN 2
 #define NUM_LEDS 8
@@ -16,28 +17,51 @@ CRGB leds[NUM_LEDS];
 
 AsyncWebServer server(80);
 
-int modus;
+typedef struct
+{
+  const String name;
+  const CRGBPalette16 palette;
+} Mode;
+
+Mode modes[] = {{"Rainbow", CRGBPalette16(RainbowColors_p)},
+                {"RainbowStripes", CRGBPalette16(RainbowStripeColors_p)},
+                {"Cloud", CRGBPalette16(CloudColors_p)},
+                {"Lava", CRGBPalette16(LavaColors_p)},
+                {"Ocean", CRGBPalette16(OceanColors_p)},
+                {"Forest", CRGBPalette16(ForestColors_p)},
+                {"Party", CRGBPalette16(PartyColors_p)},
+                {"Heat", CRGBPalette16(HeatColors_p)}};
+
+uint8_t modesCount = sizeof(modes) / sizeof(modes[0]);
+
+int curentMode = 0;
 
 void FillLEDsFromPaletteColors(uint8_t colorIndex, CRGBPalette16 palette);
-void FillLEDswithColor(CRGB color);
 void get_network_info();
+
+String getAllModesAsJson()
+{
+  StaticJsonDocument<512> doc;
+  for (int i = 0; i < modesCount; i++)
+  {
+    JsonObject mode = doc.createNestedObject();
+    mode["name"] = modes[i].name;
+  }
+  String jsonString;
+  serializeJson(doc, jsonString);
+  return jsonString;
+}
 
 void setup()
 {
   // put your setup code here, to run once:
+  delay(1000);
   Serial.begin(115200);
-  pinMode(LED_BUILTIN, OUTPUT);
-  pinMode(5, INPUT);
 
   FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
   FastLED.setBrightness(BRIGHTNESS);
 
-  modus = 0;
-
-  Serial.begin(115200);
-  delay(1000);
-
-  WiFi.mode(WIFI_STA); //Optional
+    WiFi.mode(WIFI_STA); //Optional
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   Serial.println("\nConnecting");
 
@@ -53,67 +77,10 @@ void setup()
 
   get_network_info();
 
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
+  server.on("/modes", HTTP_GET, [](AsyncWebServerRequest *request)
             {
-              Serial.println("get repuest on /");
-              modus++;
-              request->send(200, "text/plain", "ok cool");
-            });
-
-  server.on("/rainbow", HTTP_GET, [](AsyncWebServerRequest *request)
-            {
-              Serial.println("get request on /rainbowstripe");
-              modus = 0;
-              request->send(200, "text/plain", "ok cool regebogen in cool");
-            });
-
-  server.on("/rainbow", HTTP_GET, [](AsyncWebServerRequest *request)
-            {
-              Serial.println("get request on /cloudcolors");
-              modus = 1;
-              request->send(200, "text/plain", "ok cool wolken");
-            });
-
-  server.on("/rainbow", HTTP_GET, [](AsyncWebServerRequest *request)
-            {
-              Serial.println("get request on /Lava");
-              modus = 2;
-              request->send(200, "text/plain", "Lava heiß");
-            });
-
-  server.on("/rainbow", HTTP_GET, [](AsyncWebServerRequest *request)
-            {
-              Serial.println("get request on /Ocean");
-              modus = 3;
-              request->send(200, "text/plain", "nicer Ocean Bruder");
-            });
-
-  server.on("/rainbow", HTTP_GET, [](AsyncWebServerRequest *request)
-            {
-              Serial.println("get request on /Forest");
-              modus = 4;
-              request->send(200, "text/plain", "coole Bäume");
-            });
-
-  server.on("/rainbow", HTTP_GET, [](AsyncWebServerRequest *request)
-            {
-              Serial.println("get request on /rainbow");
-              modus = 5;
-              request->send(200, "text/plain", "ok cool regebogen");
-            });
-
-  server.on("/rainbow", HTTP_GET, [](AsyncWebServerRequest *request)
-            {
-              Serial.println("get request on /Party");
-              modus = 6;
-              request->send(200, "text/plain", "machst du heute Parteyyyy?");
-            });
-
-  server.on("/rainbow", HTTP_GET, [](AsyncWebServerRequest *request)
-            {
-              Serial.println("get request on /Heat");
-              modus = 7;
-              request->send(200, "text/plain", "huch ganz schön heiß hier");
+              Serial.println("get repuest on /modes");
+              request->send(200, "application/json", getAllModesAsJson());
             });
 
   server.begin();
@@ -128,44 +95,7 @@ void loop()
   static uint8_t startIndex = 0;
   startIndex = startIndex + 1; /* motion speed */
 
-  switch (modus)
-  {
-  case 0:
-    FillLEDsFromPaletteColors(startIndex, RainbowStripeColors_p);
-    break;
-
-  case 1:
-    FillLEDsFromPaletteColors(startIndex, CloudColors_p);
-    break;
-
-  case 2:
-    FillLEDsFromPaletteColors(startIndex, LavaColors_p);
-    break;
-
-  case 3:
-    FillLEDsFromPaletteColors(startIndex, OceanColors_p);
-    break;
-
-  case 4:
-    FillLEDsFromPaletteColors(startIndex, ForestColors_p);
-    break;
-
-  case 5:
-    FillLEDsFromPaletteColors(startIndex, RainbowColors_p);
-    break;
-
-  case 6:
-    FillLEDsFromPaletteColors(startIndex, PartyColors_p);
-    break;
-
-  case 7:
-    FillLEDsFromPaletteColors(startIndex, HeatColors_p);
-    break;
-
-  default:
-    modus = 0;
-    break;
-  }
+  FillLEDsFromPaletteColors(startIndex, modes[curentMode].palette);
 
   //Schicke Farben zu LED Strip
   FastLED.show();
@@ -182,14 +112,6 @@ void FillLEDsFromPaletteColors(uint8_t colorIndex, CRGBPalette16 palette)
   {
     leds[i] = ColorFromPalette(palette, colorIndex, brightness, LINEARBLEND);
     colorIndex += 3;
-  }
-}
-
-void FillLEDswithColor(CRGB color)
-{
-  for (int i = 0; i < NUM_LEDS; i++)
-  {
-    leds[i] = color;
   }
 }
 
