@@ -143,6 +143,15 @@ void setup() {
           });
   server.addHandler(ledStripPatchHandler);
 
+  // CORS Stuff
+  DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "*");
+  DefaultHeaders::Instance().addHeader("Access-Control-Allow-Headers", "*");
+  DefaultHeaders::Instance().addHeader("Access-Control-Allow-Methods",
+                                       "PUT,POST,PATCH,GET,OPTIONS");
+  DefaultHeaders::Instance().addHeader("Access-Control-Max-Age", "600");
+  server.on("/settings", HTTP_OPTIONS,
+            [](AsyncWebServerRequest *request) { request->send(204); });
+
   server.begin();
 
   Serial.println("setup completed");
