@@ -41,7 +41,7 @@ void FillLEDsFromPaletteColors(uint8_t colorIndex, CRGBPalette16 palette);
 
 String getSettingsAsJson() {
   StaticJsonDocument<96> doc;
-  doc["mode"] = modes[currentMode].name;
+  doc["currentMode"] = modes[currentMode].name;
   doc["hasBlend"] = hasBlend;
   doc["brightness"] = brightness;
   doc["fps"] = fps;
@@ -104,9 +104,9 @@ void setup() {
               if (json.is<JsonObject>()) {
                 data = json.as<JsonObject>();
                 boolean foundMode = true;
-                if (data["mode"]) {
+                if (data["currentMode"]) {
                   foundMode = false;
-                  String mode = data["mode"];
+                  String mode = data["currentMode"];
                   for (int i = 0; i < modesCount; i++) {
                     if (mode.compareTo(modes[i].name) == 0) {
                       currentMode = i;
@@ -115,10 +115,9 @@ void setup() {
                     }
                   }
                 }
-                if (data["hasBlend"]) {
-                  // TODO Input validation
-                  hasBlend = data["hasBlend"];
-                }
+
+                hasBlend = data["hasBlend"];
+
                 if (data["brightness"]) {
                   // TODO Input validation
                   brightness = data["brightness"];
