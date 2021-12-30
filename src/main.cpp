@@ -8,7 +8,7 @@
 #include <secret.h>
 
 #define LED_PIN 2
-#define NUM_LEDS 8
+#define NUM_LEDS 300
 #define LED_TYPE WS2811
 #define COLOR_ORDER GRB
 
@@ -19,20 +19,24 @@ AsyncWebServer server(80);
 typedef struct {
   const String name;
   const CRGBPalette16 palette;
-} Mode;
+} PaletteWithName;
 
-Mode modes[] = {{"Rainbow", CRGBPalette16(RainbowColors_p)},
-                {"RainbowStripes", CRGBPalette16(RainbowStripeColors_p)},
-                {"Cloud", CRGBPalette16(CloudColors_p)},
-                {"Lava", CRGBPalette16(LavaColors_p)},
-                {"Ocean", CRGBPalette16(OceanColors_p)},
-                {"Forest", CRGBPalette16(ForestColors_p)},
-                {"Party", CRGBPalette16(PartyColors_p)},
-                {"Heat", CRGBPalette16(HeatColors_p)}};
+PaletteWithName palettes[] = {
+    {"Rainbow", CRGBPalette16(RainbowColors_p)},
+    {"RainbowStripes", CRGBPalette16(RainbowStripeColors_p)},
+    {"Cloud", CRGBPalette16(CloudColors_p)},
+    {"Lava", CRGBPalette16(LavaColors_p)},
+    {"Ocean", CRGBPalette16(OceanColors_p)},
+    {"Forest", CRGBPalette16(ForestColors_p)},
+    {"Party", CRGBPalette16(PartyColors_p)},
+    {"Heat", CRGBPalette16(HeatColors_p)}};
 
-uint8_t modesCount = sizeof(modes) / sizeof(modes[0]);
+uint8_t palettesCount = sizeof(palettes) / sizeof(palettes[0]);
 
 int currentMode = 0;
+int currentPalette = 0;
+long currentColor = 16711908;
+const char* currentColorHex = "";
 boolean hasBlend = true;
 uint8_t brightness = 64;
 uint8_t fps = 100;
@@ -40,8 +44,10 @@ uint8_t fps = 100;
 void FillLEDsFromPaletteColors(uint8_t colorIndex, CRGBPalette16 palette);
 
 String getSettingsAsJson() {
-  StaticJsonDocument<96> doc;
-  doc["currentMode"] = modes[currentMode].name;
+  StaticJsonDocument<128> doc;
+  doc["currentMode"] = currentMode;
+  doc["currentPalette"] = palettes[currentPalette].name;
+  doc["currentColor"] = currentColorHex;
   doc["hasBlend"] = hasBlend;
   doc["brightness"] = brightness;
   doc["fps"] = fps;
@@ -50,11 +56,11 @@ String getSettingsAsJson() {
   return jsonString;
 }
 
-String getAllModesAsJson() {
+String getAllpalettesAsJson() {
   StaticJsonDocument<512> doc;
-  for (int i = 0; i < modesCount; i++) {
+  for (int i = 0; i < palettesCount; i++) {
     JsonObject mode = doc.createNestedObject();
-    mode["name"] = modes[i].name;
+    mode["name"] = palettes[i].name;
   }
   String jsonString;
   serializeJson(doc, jsonString);
@@ -85,9 +91,9 @@ void setup() {
   Serial.print("Local ESP32 IP: ");
   Serial.println(WiFi.localIP());
 
-  server.on("/modes", HTTP_GET, [](AsyncWebServerRequest *request) {
-    Serial.println("get repuest on /modes");
-    request->send(200, "application/json", getAllModesAsJson());
+  server.on("/palettes", HTTP_GET, [](AsyncWebServerRequest *request) {
+    Serial.println("get repuest on /palettes");
+    request->send(200, "application/json", getAllpalettesAsJson());
   });
 
   server.on("/settings", HTTP_GET, [](AsyncWebServerRequest *request) {
@@ -100,16 +106,16 @@ void setup() {
       new AsyncCallbackJsonWebHandler(
           "/settings", [](AsyncWebServerRequest *request, JsonVariant &json) {
             if (request->method() == HTTP_PATCH) {
-              StaticJsonDocument<64> data;
+              StaticJsonDocument<128> data;
               if (json.is<JsonObject>()) {
                 data = json.as<JsonObject>();
                 boolean foundMode = true;
-                if (data["currentMode"]) {
+                if (data["currentPalette"]) {
                   foundMode = false;
-                  String mode = data["currentMode"];
-                  for (int i = 0; i < modesCount; i++) {
-                    if (mode.compareTo(modes[i].name) == 0) {
-                      currentMode = i;
+                  String mode = data["currentPalette"];
+                  for (int i = 0; i < palettesCount; i++) {
+                    if (mode.compareTo(palettes[i].name) == 0) {
+                      currentPalette = i;
                       foundMode = true;
                       break;
                     }
@@ -117,6 +123,14 @@ void setup() {
                 }
 
                 hasBlend = data["hasBlend"];
+
+                if (data["currentColor"]) {
+                  // TODO Input validation
+                  currentColorHex = data["currentColor"];
+                  currentColor = strtol( data["currentColor"], NULL, 16);
+                }
+
+                currentMode = data["currentMode"];
 
                 if (data["brightness"]) {
                   // TODO Input validation
@@ -159,10 +173,28 @@ void setup() {
 void loop() {
   // put your main code here, to run repeatedly:
 
-  static uint8_t startIndex = 0;
-  startIndex = startIndex + 1; /* motion speed */
+  switch (currentMode) {
+    {
+      case 0:
+        static uint8_t startIndex = 0;
+        startIndex = startIndex + 1; /* motion speed */
 
-  FillLEDsFromPaletteColors(startIndex, modes[currentMode].palette);
+        FillLEDsFromPaletteColors(startIndex, palettes[currentPalette].palette);
+        break;
+
+      case 1:
+        // Fill LEDS with a color
+        for (int i = 0; i < NUM_LEDS; i++) {
+          leds[i] = currentColor;
+
+        }
+        FastLED.setBrightness(brightness);
+        break;
+
+      default:
+        break;
+    }
+  }
 
   // Schicke Farben zu LED Strip
   FastLED.show();
