@@ -18,8 +18,10 @@ AsyncWebServer server(80);
 
 typedef struct {
   const String name;
-  const CRGBPalette16 palette;
+  CRGBPalette16 palette;
 } PaletteWithName;
+
+CRGBPalette16 customPalette = CRGBPalette16(CRGB::Red);
 
 PaletteWithName palettes[] = {
     {"Rainbow", CRGBPalette16(RainbowColors_p)},
@@ -29,7 +31,9 @@ PaletteWithName palettes[] = {
     {"Ocean", CRGBPalette16(OceanColors_p)},
     {"Forest", CRGBPalette16(ForestColors_p)},
     {"Party", CRGBPalette16(PartyColors_p)},
-    {"Heat", CRGBPalette16(HeatColors_p)}};
+    {"Heat", CRGBPalette16(HeatColors_p)},
+    {"Custom", customPalette}
+    };
 
 uint8_t palettesCount = sizeof(palettes) / sizeof(palettes[0]);
 
@@ -155,6 +159,42 @@ void setup() {
             }
           });
   server.addHandler(ledStripPatchHandler);
+
+      // PATCH /modes/custom
+  AsyncCallbackJsonWebHandler *customModePatchHandler =
+      new AsyncCallbackJsonWebHandler(
+          "/modes/custom", [](AsyncWebServerRequest *request, JsonVariant &json) {
+            if (request->method() == HTTP_PATCH) {
+              StaticJsonDocument<384> data;
+              if (json.is<JsonArray>()) {
+                JsonArray array = json.as<JsonArray>();
+                long colorArray[16];
+                for(int i = 0; i < 16; i++) {
+                  String hexColor = array[i].as<String>();
+                  colorArray[i] = strtol(hexColor.c_str(), NULL, 16);
+                }
+                palettes[8].palette = CRGBPalette16(colorArray[0], colorArray[1],
+                                              colorArray[2], colorArray[3],
+                                              colorArray[4], colorArray[5],
+                                              colorArray[6], colorArray[7],
+                                              colorArray[8], colorArray[9],
+                                              colorArray[10], colorArray[11],
+                                              colorArray[12], colorArray[13],
+                                              colorArray[14], colorArray[15]);
+
+                request->send(200, "application/json", getSettingsAsJson());
+
+
+              } else {
+                request->send(400, "application/json",
+                              "{\"message\":\"Bad Request no Json found\"}");
+              }
+                
+            } else {
+              notFound(request);
+            }
+          });
+  server.addHandler(customModePatchHandler);
 
   // CORS Stuff
   DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "*");
