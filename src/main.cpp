@@ -39,8 +39,9 @@ uint8_t palettesCount = sizeof(palettes) / sizeof(palettes[0]);
 
 int currentMode = 0;
 int currentPalette = 0;
+int currentStep = 3;
 long currentColor = 16711908;
-const char *currentColorHex = "";
+String currentColorHex = "";
 boolean hasBlend = true;
 uint8_t brightness = 64;
 uint16_t fps = 100;
@@ -48,10 +49,11 @@ uint16_t fps = 100;
 void FillLEDsFromPaletteColors(uint8_t colorIndex, CRGBPalette16 palette);
 
 String getSettingsAsJson() {
-  StaticJsonDocument<128> doc;
+  StaticJsonDocument<384> doc;
   doc["currentMode"] = currentMode;
   doc["currentPalette"] = palettes[currentPalette].name;
   doc["currentColor"] = currentColorHex;
+  doc["currentStep"] = currentStep;
   doc["hasBlend"] = hasBlend;
   doc["brightness"] = brightness;
   doc["fps"] = fps;
@@ -127,10 +129,11 @@ void setup() {
                 }
 
                 hasBlend = data["hasBlend"];
+                currentStep = data["currentStep"];
 
                 if (data["currentColor"]) {
                   // TODO Input validation
-                  currentColorHex = data["currentColor"];
+                  currentColorHex = data["currentColor"].as<String>();
                   currentColor = strtol(data["currentColor"], NULL, 16);
                 }
 
@@ -163,7 +166,7 @@ void setup() {
       // PATCH /modes/custom
   AsyncCallbackJsonWebHandler *customModePatchHandler =
       new AsyncCallbackJsonWebHandler(
-          "/modes/custom", [](AsyncWebServerRequest *request, JsonVariant &json) {
+          "/palettes/custom", [](AsyncWebServerRequest *request, JsonVariant &json) {
             if (request->method() == HTTP_PATCH) {
               StaticJsonDocument<384> data;
               if (json.is<JsonArray>()) {
@@ -203,6 +206,8 @@ void setup() {
                                        "PUT,POST,PATCH,GET,OPTIONS");
   DefaultHeaders::Instance().addHeader("Access-Control-Max-Age", "600");
   server.on("/settings", HTTP_OPTIONS,
+            [](AsyncWebServerRequest *request) { request->send(204); });
+    server.on("/palettes/custom", HTTP_OPTIONS,
             [](AsyncWebServerRequest *request) { request->send(204); });
 
   server.begin();
@@ -246,6 +251,6 @@ void FillLEDsFromPaletteColors(uint8_t colorIndex, CRGBPalette16 palette) {
   for (int i = 0; i < NUM_LEDS; ++i) {
     leds[i] = ColorFromPalette(palette, colorIndex, brightness,
                                hasBlend ? LINEARBLEND : NOBLEND);
-    colorIndex += 3;
+    colorIndex += currentStep;
   }
 }
