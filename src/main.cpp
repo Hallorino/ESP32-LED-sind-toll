@@ -36,10 +36,10 @@ uint8_t palettesCount = sizeof(palettes) / sizeof(palettes[0]);
 int currentMode = 0;
 int currentPalette = 0;
 long currentColor = 16711908;
-const char* currentColorHex = "";
+const char *currentColorHex = "";
 boolean hasBlend = true;
 uint8_t brightness = 64;
-uint8_t fps = 100;
+uint16_t fps = 100;
 
 void FillLEDsFromPaletteColors(uint8_t colorIndex, CRGBPalette16 palette);
 
@@ -127,7 +127,7 @@ void setup() {
                 if (data["currentColor"]) {
                   // TODO Input validation
                   currentColorHex = data["currentColor"];
-                  currentColor = strtol( data["currentColor"], NULL, 16);
+                  currentColor = strtol(data["currentColor"], NULL, 16);
                 }
 
                 currentMode = data["currentMode"];
@@ -186,7 +186,6 @@ void loop() {
         // Fill LEDS with a color
         for (int i = 0; i < NUM_LEDS; i++) {
           leds[i] = currentColor;
-
         }
         FastLED.setBrightness(brightness);
         break;
