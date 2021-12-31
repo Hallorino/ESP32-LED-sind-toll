@@ -32,8 +32,7 @@ PaletteWithName palettes[] = {
     {"Forest", CRGBPalette16(ForestColors_p)},
     {"Party", CRGBPalette16(PartyColors_p)},
     {"Heat", CRGBPalette16(HeatColors_p)},
-    {"Custom", customPalette}
-    };
+    {"Custom", customPalette}};
 
 uint8_t palettesCount = sizeof(palettes) / sizeof(palettes[0]);
 
@@ -160,36 +159,34 @@ void setup() {
           });
   server.addHandler(ledStripPatchHandler);
 
-      // PATCH /modes/custom
+  // PATCH /modes/custom
   AsyncCallbackJsonWebHandler *customModePatchHandler =
       new AsyncCallbackJsonWebHandler(
-          "/modes/custom", [](AsyncWebServerRequest *request, JsonVariant &json) {
+          "/modes/custom",
+          [](AsyncWebServerRequest *request, JsonVariant &json) {
             if (request->method() == HTTP_PATCH) {
               StaticJsonDocument<384> data;
               if (json.is<JsonArray>()) {
                 JsonArray array = json.as<JsonArray>();
                 long colorArray[16];
-                for(int i = 0; i < 16; i++) {
+                for (int i = 0; i < 16; i++) {
                   String hexColor = array[i].as<String>();
                   colorArray[i] = strtol(hexColor.c_str(), NULL, 16);
                 }
-                palettes[8].palette = CRGBPalette16(colorArray[0], colorArray[1],
-                                              colorArray[2], colorArray[3],
-                                              colorArray[4], colorArray[5],
-                                              colorArray[6], colorArray[7],
-                                              colorArray[8], colorArray[9],
-                                              colorArray[10], colorArray[11],
-                                              colorArray[12], colorArray[13],
-                                              colorArray[14], colorArray[15]);
+                palettes[8].palette = CRGBPalette16(
+                    colorArray[0], colorArray[1], colorArray[2], colorArray[3],
+                    colorArray[4], colorArray[5], colorArray[6], colorArray[7],
+                    colorArray[8], colorArray[9], colorArray[10],
+                    colorArray[11], colorArray[12], colorArray[13],
+                    colorArray[14], colorArray[15]);
 
                 request->send(200, "application/json", getSettingsAsJson());
-
 
               } else {
                 request->send(400, "application/json",
                               "{\"message\":\"Bad Request no Json found\"}");
               }
-                
+
             } else {
               notFound(request);
             }
@@ -204,7 +201,8 @@ void setup() {
   DefaultHeaders::Instance().addHeader("Access-Control-Max-Age", "600");
   server.on("/settings", HTTP_OPTIONS,
             [](AsyncWebServerRequest *request) { request->send(204); });
-
+  server.on("/modes/custom", HTTP_OPTIONS,
+            [](AsyncWebServerRequest *request) { request->send(204); });
   server.begin();
 
   Serial.println("setup completed");
